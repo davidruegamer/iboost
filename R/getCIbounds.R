@@ -247,3 +247,42 @@ getPval <- function(ints, sd, y=NULL, testvecT = NULL, muHat = as.numeric(testve
   
   
 }
+
+
+selectiveInf <- function(v, Y, Gamma = NULL, sd, vlo = NULL, vup = NULL, 
+                         gridrange = c(-100,100), 
+                         gridpts = 100, 
+                         griddepth = 2, alpha)
+{
+
+  z = as.numeric(v %*% Y)
+  vv = sum(v^2)
+  sd = sd*sqrt(vv)
+  
+  if(!is.null(Gamma)){
+  
+    rho = Gamma %*% t(v) / vv
+    vec = (- Gamma %*% Y + rho * z) / rho
+    vlo = suppressWarnings(max(vec[rho>0]))
+    vup = suppressWarnings(min(vec[rho<0]))
+    
+  }else{
+    
+    if(is.null(vlo) | is.null(vup)) stop("Must supply vlo and vup if Gamma is NULL.")
+    
+  }
+  
+  pv = selectiveInference:::tnorm.surv(z = z, mean = 0, sd = sd, a = vlo, b = vup, bits = NULL)
+  if(z <= 0) pv <- 1 - pv
+
+  xg = seq(gridrange[1]*sd, gridrange[2]*sd, length = gridpts)
+  fun = function(x) { selectiveInference:::tnorm.surv(z = z, mean = x, sd = sd, 
+                                                      a = vlo, b = vup, bits = NULL) }
+  
+  int = selectiveInference:::grid.search(xg, fun, alpha/2, 1-alpha/2, 
+                                         gridpts, griddepth)
+  tailarea = c(fun(int[1]), 1-fun(int[2]))
+  
+  return(list(pv = pv, vlo_vup = c(vlo, vup), int = int, tailarea = tailarea))
+
+}

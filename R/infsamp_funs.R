@@ -27,8 +27,10 @@ findtrunclims <- function(refitFun, r, yperp, B, var, v, ncore, confun)
   # define checkfun
   checkfun <- function(val) confun(refitFun(as.numeric(yperp + val * v)))
 
-  vlo <- binsearch(r - 2^c(6:0) * sqrt(var), nrIter = B, checkfun = checkfun, ncore = ncore, x = r)
-  vup <- binsearch(r + 2^c(0:6) * sqrt(var), nrIter = B, checkfun = checkfun, ncore = ncore, x = r, lower = F)
+  vlo <- binsearch(r - 3^c(3:-8) * sqrt(var), nrIter = B, 
+                   checkfun = checkfun, ncore = ncore, x = r)
+  vup <- binsearch(r + 3^c(-8:3) * sqrt(var), nrIter = B, 
+                   checkfun = checkfun, ncore = ncore, x = r, lower = F)
   
   return(c(vlo,vup))
   
@@ -63,13 +65,19 @@ binsearch <- function(grid, nrIter, checkfun, ncore, x, lower = T, tol = 1e-6)
     }
     
     if(all(!logvals) & count == nrIter) break
-    if(count == nrIter) res <- ifelse(lower, grid[which.min(logvals)], grid[which.max(logvals)])
+    if(count == nrIter) res <- ifelse(lower, grid[which.min(logvals)], 
+                                      grid[which.max(logvals)])
     
     i0 <- ifelse(lower, max(which(!logvals)), min(which(!logvals)))
+    
+    # last step was too small, so that search jumped over the boundary
+    if( (i0==12 & lower) | (i0==1 & !lower) ) break
+    
     left <- ifelse(lower, grid[i0], grid[i0 - 1] + tol/10)
     right <- ifelse(lower, grid[i0 + 1] - tol/10, grid[i0])
-    grid <- seq(left, right, length = 10)
     
+    grid <- seq(left, right, length = 12)
+        
     if(diff(grid)[1] < tol){
       
       res <- ifelse(lower, grid[i0 + 1], grid[i0 - 1])

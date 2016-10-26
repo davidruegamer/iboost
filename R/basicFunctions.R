@@ -1,76 +1,77 @@
 #### basic functions
 
-createQ <- function(listOfIminusHatSq, indicesOfChoice, Upsilons, choiceIsBestBL = TRUE, notSelected=NULL)
+createQ <- function(listOfIminusHatSq, indicesOfChoice, Upsilons#, choiceIsBestBL = TRUE, notSelected=NULL
+                    )
 {
-  
-  
-  ss <-  1:length(listOfIminusHatSq)
-  
-  Q <- unlist(lapply(1:length(indicesOfChoice),function(i){
+
+  unlist(lapply(1:length(indicesOfChoice), function(i){
     
     selC <- indicesOfChoice[i]
-    compPart <- if(choiceIsBestBL) ss[-selC] else notSelected
+    compPart <- #if(choiceIsBestBL) 
+      (1:length(listOfIminusHatSq))[-selC] #else notSelected
     
-    M1minusM2 <-  lapply(compPart,function(ii) listOfIminusHatSq[[selC]]-listOfIminusHatSq[[ii]]) 
-    lapply(M1minusM2, function(m) crossprod(crossprod(m,Upsilons[[i]]),Upsilons[[i]]))
+    M1minusM2 <-  lapply(compPart, function(ii) listOfIminusHatSq[[selC]] - listOfIminusHatSq[[ii]]) 
+    lapply(M1minusM2, function(m) crossprod(crossprod(m, Upsilons[[i]]), Upsilons[[i]]))
     
   }), recursive = F)
   
-  return(Q)
-  
-  
 }
 
-mCreate <- function(mod, conditionOn = c("last","notSelected","first","inBetween"), crit=c("none","GCV","AIC","gMDL"),
-                    invertIneq = FALSE, Ups, Sigma=NULL, optimNotSel = FALSE, ...)
+mCreate <- function(mod, # conditionOn = c("last","notSelected","first","inBetween"), 
+                    crit=c("none","GCV","AIC","gMDL"), Ups, ...)
 {
   
   # stuff for calculations
-  hatMats <- lapply(mod$basemodel,function(b)b$hatvalues())
+  if(inherits(mod,"glmboost")){
+    
+    dd <- mod$baselearner[[1]]$get_data()
+    hatMats <- lapply(1:ncol(dd), function(i) tcrossprod(dd[,i])/as.numeric(crossprod(dd[,i])))
+    
+  }else hatMats <- lapply(mod$basemodel,function(b)b$hatvalues())
   selCourse <- selected(mod)
-  # selCov <- lapply(1:mstop(mod),function(i)unique(selected(mod)[1:i]))
-  Y <- mod$response
-  n <- length(Y)
-  p <- length(mod$basemodel)
+  p <- length(hatMats)
   w <- mod$`(weights)`
   
-  # define vector of iteration indices
-  testVec <- if(!conditionOn[1]%in%c("first","inBetween")) 
-    sapply(unique(selCourse),function(z) max(which(z==selCourse))) else 
-      sapply(unique(selCourse),function(z) min(which(z==selCourse)))
-  testVecSort <- testVec[order(selCourse[testVec])]
+  # # define vector of iteration indices
+  # testVec <- if(!conditionOn[1]%in%c("first","inBetween")) 
+  #   sapply(unique(selCourse),function(z) max(which(z==selCourse))) else 
+  #     sapply(unique(selCourse),function(z) min(which(z==selCourse)))
+  # testVecSort <- testVec[order(selCourse[testVec])]
   
-  notSelected <- (1:p)[!(1:p)%in%selCourse]
+  # notSelected <- (1:p)[!(1:p)%in%selCourse]
   
   # calculate ||(I-P)||^2
   IminusHatsq <- lapply(1:p,function(i)crossprod(diag(w)-hatMats[[i]]))
   
-  M <- list()
+  # M <- list()
   
   # create conditions resulting from selection
-  if(conditionOn[1]!="notSelected"){
+  # if(conditionOn[1]!="notSelected"){
   
-    M <- createQ(listOfIminusHatSq = IminusHatsq, indicesOfChoice = selCourse[1:max(testVecSort)],
-               Upsilons = Ups, choiceIsBestBL = TRUE)
+  M <- createQ(listOfIminusHatSq = IminusHatsq, 
+               indicesOfChoice = selCourse, #[1:max(testVecSort)],
+               Upsilons = Ups) #, choiceIsBestBL = TRUE)
     
-  }
+  # }
 
-  # create conditions resulting from not selected variables  
-  if(conditionOn[1]%in%c("inBetween","notSelected") & length(notSelected) > 0){
-    
-    M <- append(M, 
-                createQ(listOfIminusHatSq = IminusHatsq, indicesOfChoice = selCourse[1:max(testVecSort)],
-                        Upsilons = Ups, choiceIsBestBL = FALSE, notSelected = notSelected))
-    
-  }
+  # sapply(M, function(m) crossprod(crossprod(m,y),y)<0) must be true
   
-  Madd <- if(crit[1]!="none") mCreateCrit(mod=mod, crit=crit, Ups=Ups, Sigma=Sigma, ...) else NULL
+  # # create conditions resulting from not selected variables  
+  # if(conditionOn[1]%in%c("inBetween","notSelected") & length(notSelected) > 0){
+  #   
+  #   M <- append(M, 
+  #               createQ(listOfIminusHatSq = IminusHatsq, indicesOfChoice = selCourse[1:max(testVecSort)],
+  #                       Upsilons = Ups, choiceIsBestBL = FALSE, notSelected = notSelected))
+  #   
+  # }
+  # 
+  Madd <- if(crit[1]!="none") mCreateCrit(mod=mod, crit=crit, Ups=Ups, ...) else NULL
                
-  return(list(M=M,Madd=Madd,ind=testVecSort))
+  return(list(M = M, Madd = Madd))# ,ind=testVecSort))
   
 }
 
-mCreateCrit <- function(mod, crit=c("none","GCV","AIC","gMDL"), Ups, eps=0.01, Sigma=NULL)
+mCreateCrit <- function(mod, crit=c("none","GCV","AIC","gMDL"), Ups, eps=0.01)
 {
   
   hatMats <- lapply(mod$basemodel,function(b)b$hatvalues())

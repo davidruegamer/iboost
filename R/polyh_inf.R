@@ -1,68 +1,49 @@
-polyh_inf <- function(obj, vT, is_congruent, B, var, ncore, alpha)
+polyh_inf <- function(obj, vT, var, ncore, alpha, Ups = NULL, ...)
 {
   
+  ### get stuff from the model
   Y <- obj$response
-  n <- length(Y)
-  nu <- obj$control$nu
-  
-  # Does this always work for L2-Boosting?
-  X <- getDesignmat(obj)
-  
+  X <- getDesignmat(obj, full = T)  
   p <- ncol(X)
   selCourse <- selected(obj)
   
-  Ups <- getUpsilons(obj)
+  ### get Upsilons if not already available
+  if(is.null(Ups)) Ups <- getUpsilons(obj)
+  # check for correctness:
+  # sapply(2:length(Ups),function(i) sum(Ups[[i]]%*%Y - obj[i-1]$resid()))
+  # should be approx 0 for all iterations
   
-  signCourse <- if(inherits(mod, "glmboost"))
-    sapply(1:mstop(obj), function(m) obj[m]$coef()) else 
-      sapply(1:mstop(obj),function(m) sapply(obj[m]$coef(),"[[","temp"))
-    
+  ### get coefficient path
+  sig <- getCoefPath(obj, what = "sign")
   
+  ### function for comparison
+  olsFun <- function(x) t(x)/sqrt(as.numeric(crossprod(x)))
   
-  nams <- attr(signCourse[[length(signCourse)]], "names")
-  signCourseS <- do.call("rbind",lapply(signCourse, function(sc){
-    
-    lenSc <- length(sc)
-    
-    if(lenSc<length(nams)){
-      
-      namSc <- names(sc)
-      nams<- nams[!nams%in%namSc]
-      sc <- c(rep(0,length(nams)),sc)
-      names(sc) <- c(nams,namSc)
-      sc <- sc[sort(names(sc))]
-      
-    }
-    
-    unlist(sc)
-    
-  }))
-  
-  signCoursePM <- apply(rbind(rep(0,length(unique(selCourse))), signCourseS), 2, diff)
-  sig = if(length(signCoursePM)==1) sign(signCoursePM) else rowSums(sign(signCoursePM))
-  
+  ### construct polyhedron characterisic matrix Gamma
   Gamma <- unlist(lapply(1:length(selCourse), function(i){
     # different indexing: Upsilons = Upsilon[0:(k-1)]
     k = selCourse[i]
     lapply(c(1:p)[-k], function(j){
-      rbind(((sig[i]*t(X[,k]))/as.numeric(crossprod(X[,k])) + X[,j]/
-               as.numeric(crossprod(X[,j])))%*%Ups[[i]],
-            ((sig[i]*t(X[,k]))/as.numeric(crossprod(X[,k])) - X[,j]/
-               as.numeric(crossprod(X[,j])))%*%Ups[[i]])
-    })
+      
+      rbind((sig[i]*olsFun(X[,k]) + olsFun(X[,j]))%*%Ups[[i]],
+            (sig[i]*olsFun(X[,k]) - olsFun(X[,j]))%*%Ups[[i]]
+      )
+    
+      })
   }), recursive=F)
   
-  attr(Gamma, "selected") <- rep(selCourse,each=p-1)
-  attr(Gamma, "notSelected") <- unlist(lapply(selCourse,function(k)c(1:p)[-k]))
-  names(Gamma) <- paste0("sel",rep(selCourse,each=p-1),"_notsel",unlist(lapply(selCourse,function(k)c(1:p)[-k])))
+  Gamma <- do.call("rbind", Gamma)
+  # check for correctness:
+  # all(Gamma%*%Y > 0)
   
-  ret <- lapply(1:length(vT), function(vv){
-    
-    ret1 <- selectiveInference:::poly.pval(y = Y, G = Gamma[[length(Gamma)]], u = 0, v = t(vT[[j]]), sigma = sqrt(var))
-    ret2 <- selectiveInference:::poly.int(y = Y, G = Gamma[[length(Gamma)]], u = 0, v = t(vT[[j]]), sigma = sqrt(var),
-                                          alpha = alpha)
-  
-  }
+  # attr(Gamma, "selected") <- rep(selCourse, each=p-1)
+  # attr(Gamma, "notSelected") <- unlist(lapply(selCourse, function(k) c(1:p)[-k]))
+
+  ### do inference
+  ret <- lapply(1:length(vT), function(j) selectiveInf(v = vT[[j]], Y = Y, 
+                                                       Gamma = Gamma,
+                                                       sd = sqrt(var),
+                                                       alpha = alpha))
   
   return(ret)
   

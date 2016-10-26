@@ -1,5 +1,7 @@
-boot_inf <- function(mod, evT, nrBL, confun, B, bootType, var, ncore, alpha)
+boot_inf <- function(mod, refit.mboost = NULL, evT, nrBL, confun, B, bootType, var, ncore, alpha)
 {
+  
+  if(is.null(refit.mboost)) stopifnot(bootType == "nonparam")
   
   if(bootType == "nonparam"){
     
@@ -22,7 +24,7 @@ boot_inf <- function(mod, evT, nrBL, confun, B, bootType, var, ncore, alpha)
     
   }else{
     
-    mu <- fitted(mod)
+    mu <- getDesignmat(mod) %*% evT(mod, which = NULL) %*% mod$response
     newdat <- sapply(1:B, function(b) rnorm(length(mu), mu, sqrt(var)))
     
     ret <- mclapply(1:ncol(newdat), function(i){ 

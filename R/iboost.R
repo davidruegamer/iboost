@@ -16,13 +16,17 @@ iboost <- function(obj,
                    B = 1000,
                    alpha = 0.05,
                    ncore = 1,
-                   refit.mboost = NULL)
+                   refit.mboost = NULL,
+                   Ups = NULL)
 {
   
   ####### checks #######
 
   if(all(class(obj) != "mboost")) stop("obj must be of class mboost.")
   
+  if(abs(obj$offset) > 0.000001) stop(paste0("Please refit the model by substracting", 
+                                  " the offset from the response before calling mboost / glmboost."))
+    
   # condition <- match.arg(condition)
   method <- match.arg(method)
   if(alpha >= 1 | alpha <= 0.001) stop("Please provide an alpha value in between 0.001 and 1.")
@@ -33,12 +37,9 @@ iboost <- function(obj,
   # check for not supported baselearners
   if(class(obj)[1] != "glmboost"){
     
-    bls <- gsub("\\(.*\\)", "", names(obj$baselearner))
-    if(any(bls != "bols")) stop("Inference currently restricted to models with linear baselearners only.")
-    
-  }else{
-    
-    bls <- (unique(obj$assign))
+    bls <- gsub("(bols\\()(.*)(\\,.*)", "\\1\\3", sapply(obj$baselearner, function(x) x$get_call()))
+    if(any(bls != "bols(, intercept = FALSE)")) 
+      stop("Inference currently restricted to models with linear baselearners only.")
     
   }
   
@@ -56,7 +57,8 @@ iboost <- function(obj,
     is_congruent <- function(mod) setequal(selected(mod), sel)
   
   y <- obj$response
-    
+  n <- length(y)  
+  
   # get design matrix and testvector(s)
   X <- getDesignmat(obj)
   Xplus <- solve(crossprod(X)) %*% t(X)
@@ -70,7 +72,9 @@ iboost <- function(obj,
       # TODO - CHECK: is order correct? 
       X <- getDesignmat(mod)[, order(sel)]
       W <- mod$`(weights)`
-      ( solve(crossprod(X * W, X)) %*% t(X) %*% diag(W) )[which, ]
+      if(is.null(which))
+        solve(crossprod(X * W, X)) %*% t(X) %*% diag(W)  else
+          ( solve(crossprod(X * W, X)) %*% t(X) %*% diag(W) )[which, ]
       
     } 
   
@@ -78,7 +82,7 @@ iboost <- function(obj,
   
   if(is.null(refit.mboost)){
     
-    refit.mboost <<- function(newY){
+    refit.mboost <- function(newY){
       
       call <- obj$call
       olddat <- eval(call$data, parent.frame())
@@ -97,10 +101,12 @@ iboost <- function(obj,
   ####### call distribution helper functions #######
   
   res <- switch (method,
-    boot = boot_inf(obj, evT = extract_vT, nrBL = length(sel), 
+    boot = boot_inf(obj, refit.mboost, evT = extract_vT, nrBL = length(sel), 
                     is_congruent, B, bootType, var, ncore),
-    analytic = polyh_inf(obj, vT, is_congruent, B, var, ncore, alpha),
-    slice = slice_inf(obj, vT, is_congruent, B, var, ncore),
+    analytic = polyh_inf(obj, vT, var, ncore, alpha, Ups = Ups),
+    slice = getVloVup(mod = obj, v = lapply(vT, t), 
+                      #Sigma = var * diag(n),  # only relevant if non-diag matrix
+                      ncore = ncore, Ups = Ups),
     infsamp = infsamp(refit.mboost, y, vT, is_congruent, B, var, ncore)
   )
   
@@ -119,31 +125,45 @@ iboost <- function(obj,
       ci <- qtnorm(c(alpha/2, 1-alpha/2), 
                    mean = mu,
                    sd = sqrt(var)*sqvTv,
-                   lower = res[[j]][1],
-                   upper = res[[j]][2])
-      
+                   lower = res[[j]][1]*sqvTv^2,
+                   upper = res[[j]][2]*sqvTv^2)
+      pv <- selectiveInference:::tnorm.surv(mu, mean = 0, sd = sqrt(var)*sqvTv,
+                                            a = res[[j]][1]*sqvTv^2,
+                                            b = res[[j]][2]*sqvTv^2)
+      if(mu<=0) pv <- 1 - pv
+  
     }else if(method == "boot"){
       
-      ci <- quantile(res[[j]] * vTv, probs = c(alpha/2, 1-alpha/2))
+      ci <- quantile(res[[j]], probs = c(alpha/2, 1-alpha/2), na.rm = T)
+      pv <- as.numeric(ci[1] <= 0 & 0 <= ci[2])
       
     }else if(method == "analytic"){
       
-      ci <- res[[j]][[2]]$int
+      ci <- res[[j]]$int
+      pv <- res[[j]]$pv
       
     }else{ # slice
       
-      
+      # ci <- getCIbounds(res[[j]]$ul, sqrt(var), y = y, 
+      #                   etaT = vT[[j]], alpha = alpha)
+      ci <- selectiveInf(v = vT[[j]], Y = y, sd = sqrt(var), vlo = res[[j]]$ul[[1]],
+                         vup = res[[j]]$ul[[2]], alpha = alpha)
+      pv <- ci$pv
+      ci <- ci$int
       
     }
     
-    resDF[[j]] <- data.frame(lower = ci[1], mean = mu, upper = ci[2])
+    resDF[[j]] <- data.frame(lower = ci[1], mean = mu, upper = ci[2], pval = pv)
     
   }
   
   resDF <- do.call("rbind", resDF)
+  rownames(resDF) <- sel
   
   ret <- list(dist = res,
-              method = method,
+              method = ifelse(method=="boot", 
+                              paste0(method, " ", bootType), 
+                              method),
               alpha = alpha,
               vT = vT,
               yorg = y,
@@ -155,21 +175,4 @@ iboost <- function(obj,
   
   
 }
-
-
-
-print.iboost <- function(ibo)
-{
-  
-  if(method == "boot"){
-    
-    
-  }else{
-    
-    
-  }
-  
-  
-}
-
 

@@ -25,7 +25,7 @@ getUpsilons <- function(mod, otherSelCourse = NULL, last = FALSE,
   nu <- mod$control$nu
   
   selCourse <- if(is.null(otherSelCourse)) selected(mod) else otherSelCourse
-  if(inherits(mod,"glmboost")) selCourse <- new_order(selCourse)
+  if(inherits(mod,"glmboost")) selCourse <- as.numeric(as.factor(selCourse))
   
   ### part for hat matrix
   hatMats <- lapply(mod$basemodel,function(b)b$hatvalues())
