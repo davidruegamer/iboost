@@ -1,40 +1,64 @@
-infsamp <- function(refitFun, y, vT, confun, B, var, ncore)
+infsamp <- function(refitFun, y, vT, confun, B, var, ...)
 {
- 
-  Pv <- lapply(vT, function(x) crossprod(x) / as.numeric(tcrossprod(x)))
-  yperp <- lapply(Pv, function(p) y - p %*% y) 
-  r <- lapply(vT, function(x) as.numeric(x %*% y) / as.numeric(tcrossprod(x)))
-  v <- lapply(vT, t)
   
-  lims <- list()
-  
-  for(j in 1:length(vT)){
+  if(!is.list(vt) && nrow(vt)==1){
     
-    lims[[j]] <- findtrunclims(refitFun, r = r[[j]], yperp = yperp[[j]], B = B, 
-                               var = var, v = v[[j]], ncore = ncore, confun = confun)
+    Pv <- crossprod(vt) / as.numeric(tcrossprod(vt))
+    yperp <- y - Pv %*% y
+    r <- as.numeric(vt %*% y)
+    vnorm <- t(vt) / as.numeric(tcrossprod(vt))
+    lin <- TRUE
     
-  
+  }else{
+    
+    R <- vt %*% y
+    r <- sqrt(sum(R^2))
+    vnorm <- t(vt) %*% R / r
+    yperp <- y - vnorm * r
+    
+    lin <- FALSE
+    
   }
-   
+  
+  lims <- findtrunclims(refitFun, 
+                        r = r, 
+                        yperp = yperp, 
+                        B = B, 
+                        var = var, 
+                        vnorm = vnorm, 
+                        confun = confun,
+                        lin = lin, ...)
+  attr(lims, "r") <- r
+  
   return(lims)
   
 }
 
 
-findtrunclims <- function(refitFun, r, yperp, B, var, v, ncore, confun)
+
+
+findtrunclims <- function(refitFun, r, yperp, B, var, 
+                          vnorm, ncore, confun, lin = TRUE,
+                          gridvals = 3:-8)
 {
 
   # define checkfun
-  checkfun <- function(val) confun(refitFun(as.numeric(yperp + val * v)))
+  checkfun <- function(val) confun(refitFun(as.numeric(yperp + val * vnorm)))
 
-  vlo <- binsearch(r - 3^c(3:-8) * sqrt(var), nrIter = B, 
+  if(lin) lowEnd <- r - 3^gridvals * sqrt(var) else
+    lowEnd <- seq(0, r - 3^min(gridvals), l = 12)
+  
+  vlo <- binsearch(lowEnd, nrIter = B, 
                    checkfun = checkfun, ncore = ncore, x = r)
-  vup <- binsearch(r + 3^c(-8:3) * sqrt(var), nrIter = B, 
+  vup <- binsearch(r + 3^(-gridvals) * sqrt(var), nrIter = B, 
                    checkfun = checkfun, ncore = ncore, x = r, lower = F)
   
   return(c(vlo,vup))
   
 }
+
+
+
 
 binsearch <- function(grid, nrIter, checkfun, ncore, x, lower = T, tol = 1e-6)
 {
@@ -46,19 +70,20 @@ binsearch <- function(grid, nrIter, checkfun, ncore, x, lower = T, tol = 1e-6)
   
   while(count < nrIter){
     
-    logvals <- unlist(mclapply(grid, checkfun, mc.cores = ncore))
+    logvals <- unlist(mclapply(round(grid, -log(tol,10)), checkfun, mc.cores = ncore))
     
     if(all(logvals)){ 
       
       if(count == 1){ 
         
         res <- ifelse(lower, -Inf, Inf)
+        if(lower && grid[1]==0) res <- 0
         
       }else{
         
         res <- ifelse(lower, min(grid), max(grid))  
         
-        } 
+      } 
       
       break
       
@@ -71,16 +96,20 @@ binsearch <- function(grid, nrIter, checkfun, ncore, x, lower = T, tol = 1e-6)
     i0 <- ifelse(lower, max(which(!logvals)), min(which(!logvals)))
     
     # last step was too small, so that search jumped over the boundary
-    if( (i0==12 & lower) | (i0==1 & !lower) ) break
+    if( (i0==length(grid) & lower) | (i0==1 & !lower) ) break
     
     left <- ifelse(lower, grid[i0], grid[i0 - 1] + tol/10)
     right <- ifelse(lower, grid[i0 + 1] - tol/10, grid[i0])
     
-    grid <- seq(left, right, length = 12)
+    grid <- seq(left, right, length = length(grid))
         
     if(diff(grid)[1] < tol){
       
-      res <- ifelse(lower, grid[i0 + 1], grid[i0 - 1])
+      # better safe than sorry -> select with some margin
+      # -> with this tolerance it can happen that logval == TRUE
+      # but the result later will be FALSE
+      res <- ifelse(lower, grid[pmin(length(grid), i0 + 1 + 1)], 
+                    grid[pmax(1, i0 - 1 - 1)])
       break
       
     }

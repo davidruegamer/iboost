@@ -70,11 +70,11 @@ getUpsilons <- function(mod, otherSelCourse = NULL, last = FALSE,
   upsPart <- lapply(hatMats,function(x)(diag(w)-x*nu))
   
   len <- length(selCourse)
-  Upsilons <- vector("list",len)
+  Upsilons <- vector("list",len+1)
   Upsilons[[1]] <- diag(w)
   
   if(len>1)
-    for(i in 1:(len-1)) 
+    for(i in 1:len)
       Upsilons[[i+1]] <- upsPart[[selCourse[i]]] %*% Upsilons[[i]] 
   
   if(last) return(Upsilons[[length(Upsilons)]])

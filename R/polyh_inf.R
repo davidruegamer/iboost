@@ -1,4 +1,4 @@
-polyh_inf <- function(obj, vT, var, ncore, alpha, Ups = NULL, ...)
+polyh_inf <- function(obj, vT, alpha, Ups = NULL, ..., returnComps = FALSE)
 {
   
   ### get stuff from the model
@@ -25,26 +25,54 @@ polyh_inf <- function(obj, vT, var, ncore, alpha, Ups = NULL, ...)
     k = selCourse[i]
     lapply(c(1:p)[-k], function(j){
       
-      rbind((sig[i]*olsFun(X[,k]) + olsFun(X[,j]))%*%Ups[[i]],
+      x <- rbind((sig[i]*olsFun(X[,k]) + olsFun(X[,j]))%*%Ups[[i]],
             (sig[i]*olsFun(X[,k]) - olsFun(X[,j]))%*%Ups[[i]]
       )
     
+      rownames(x) <- c(paste(i,k,j,"+",sep="_"), paste(i,k,j,"-",sep="_"))
+      return(x)
+      
       })
   }), recursive=F)
   
   Gamma <- do.call("rbind", Gamma)
-  # check for correctness:
-  # all(Gamma%*%Y > 0)
   
-  # attr(Gamma, "selected") <- rep(selCourse, each=p-1)
-  # attr(Gamma, "notSelected") <- unlist(lapply(selCourse, function(k) c(1:p)[-k]))
+  base <- as.data.frame(do.call("rbind", lapply(rownames(Gamma), 
+                                                function(x) strsplit(x,"_")[[1]])),
+                        stringsAsFactors = FALSE)
+  colnames(base) <- c("iteration", "selected", "comparison", "sign")
+  base[,1:3] <- sapply(base[,1:3], as.numeric)
+  
+  attr(Gamma, "base") <- base
 
-  ### do inference
-  ret <- lapply(1:length(vT), function(j) selectiveInf(v = vT[[j]], Y = Y, 
-                                                       Gamma = Gamma,
-                                                       sd = sqrt(var),
-                                                       alpha = alpha))
+  # as long as covariance is diagonal, 
+  # we dont need the variance
+  # for the boundaries anyway
+    
+  if(returnComps){
+    
+    return(list(vT = vT, Gamma = Gamma))
+    
+  }else{
+    
+    return(lapply(1:length(vT), function(j) polyh_vlovup(vT=vT[[j]], Y = Y,
+                                                         Gamma = Gamma)))
+    
+  }
+    
+}
+
+polyh_vlovup <- function(vT, Y, Gamma, returnBounds = TRUE)
+{
   
-  return(ret)
+  z = as.numeric(vT %*% Y)
+  vv = sum(vT^2)
+  # sd = sqrt(var)*sqrt(vv) 
+  rho = Gamma %*% t(vT) / vv
+  vec = (- Gamma %*% Y + rho * z) / rho
+  vlo = suppressWarnings(max(vec[rho>0]))
+  vup = suppressWarnings(min(vec[rho<0]))
+  if(returnBounds) return(c(vlo,vup)) else
+    return(c(which.max(vec[rho>0]), which.min(vec[rho<0])))
   
 }
