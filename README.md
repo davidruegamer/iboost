@@ -1,2 +1,1 @@
-# iboost
-# Experimental stage
+# iboost - experimental stage
