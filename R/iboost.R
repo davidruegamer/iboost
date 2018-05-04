@@ -38,6 +38,7 @@ iboost <- function(obj,
                               "slice", 
                               "analytic",
                               "normalsamp",
+                              "normaladjsamp",
                               "impsamp",
                               "unifsamp"),
                    vars,
@@ -137,6 +138,9 @@ iboost <- function(obj,
     normalsamp = mclapply(vT, function(vt) 
       normalsamp(refit.mboost, y, vT = vt, is_congruent, B, var, ...), 
                           mc.cores = ncore),
+    normaladjsamp = mclapply(vT, function(vt) 
+      normaladjsamp(refit.mboost, y, vT = vt, is_congruent, B, var), 
+      mc.cores = ncore),
     impsamp = mclapply(vT, function(vt) 
       impsamp(refit.mboost, y, vT = vt, is_congruent, B, var, ...), 
                        mc.cores = ncore),
@@ -193,7 +197,7 @@ format_iboost_res <- function(res, alpha, method, vT, this_var, computeCI, fac, 
       vlo <- res[[j]]$ul[[1]]
       vup <- res[[j]]$ul[[2]]
       
-    }else if(method %in% c("normalsamp", "impsamp", "unifsamp", "impsamp")){
+    }else if(method %in% c("normalsamp", "normaladjsamp", "impsamp", "unifsamp", "impsamp")){
       
       if("extrcase" %in% names(attributes(res[[j]]))){
         resDF[[j]] <- data.frame(lower = NA, mean = res[[j]]$obsval, upper = NA, pval = 0,
@@ -228,7 +232,7 @@ format_iboost_res <- function(res, alpha, method, vT, this_var, computeCI, fac, 
       if(computeCI){
         
         # define binary search and get confidence intervaĺ
-        if(method %in% c("normalsamp", "unifsamp"))
+        if(method %in% c("normalsamp", "unifsamp", "normaladjsamp"))
         {
           
           w <- res[[j]]$weights(var = this_var)

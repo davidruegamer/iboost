@@ -158,9 +158,16 @@ getTestvector <- function(obj, eps, makeGroup = FALSE)
       # X0perp = X0 - XSh0%*%solve(t(XSh0)%*%XSh0,t(XSh0)%*%X0) 
       # u = X0perp%*%solve(t(X0perp)%*%X0perp)%*%t(X0perp) 
 
+      # from the selectiveInference package
+      svdu_thresh <- function(x) {
+        svdx <- svd(x)
+        inds <- svdx$d > svdx$d[1] * sqrt(.Machine$double.eps)
+        return(svdx$u[, inds, drop = FALSE])
+      }
+      
         Xj <- X[[j]]
-        Xminusj <- svd(do.call("cbind", X[-j]))$u
-        vT[[j]] <- t(svd(Xj - tcrossprod(Xminusj) %*% Xj)$u)
+        Xminusj <- svdu_thresh(do.call("cbind", X[-j]))
+        vT[[j]] <- t(svdu_thresh(Xj - tcrossprod(Xminusj) %*% Xj))
         
       # }
       

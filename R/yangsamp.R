@@ -101,6 +101,48 @@ normalsamp <- function(refitFun, y, vT, is_congruent, B, var,
 
 }
 
+normaladjsamp <- function(refitFun, y, vT, is_congruent, B, var)
+{
+  
+  
+  vTv = as.numeric(tcrossprod(vT))
+  Z = as.numeric(vT%*%y)
+  u = as.numeric(t(vT)) / vTv
+  yperp = y - u*Z
+  this_var <- var * vTv
+  this_mean <- Z
+  
+  checkv <- generateSamples(refitFun = refitFun, is_congruent = is_congruent, 
+                            samplingFun = function(B) 
+                            {
+                              sv <- 4^(-1*1:floor(B/2))
+                              sv <- c(rev(sv),1-sv)
+                              this_mean + qnorm(sv)*sqrt(this_var)
+                              }, 
+                            B = 10, refPoint = yperp, dir = u)
+  
+  if(all(!checkv$logvals) | sum(checkv$logvals)==1) samplevar <- this_var else
+  {
+    
+    minm <- min(this_mean, min(checkv$survive))
+    maxm <- max(this_mean, max(checkv$survive))
+    range <- maxm - minm
+    samplevar <- range/qnorm(0.999)*2
+  }
+    
+  
+  ss <- generateSamples(refitFun = refitFun, is_congruent = is_congruent, 
+                        samplingFun = function(B) rnorm(n = B, mean = this_mean, 
+                                                        sd = sqrt(samplevar)), 
+                        B = B, refPoint = yperp, dir = u)
+  
+  weights <- function(var = var) dnorm(ss$survive, mean = 0, sd = sqrt(var*vTv)) / 
+    dnorm(ss$survive, mean = this_mean, sd = sqrt(samplevar*vTv))
+  
+  return(list(rBs = ss$rBs, logvals = ss$logvals, obsval = Z, weights = weights))
+  
+}
+
 unifsamp <- function(refitFun, y, vT, is_congruent, B, var, 
                      min_nr_res = 50,  
                      maxIter = 100, nInit = 20, ...)
