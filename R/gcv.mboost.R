@@ -1,5 +1,3 @@
-library(Matrix)
-
 gcv.mboost <- function(mod, Ups=NULL){
   
   H <- getHatMatrix(mod, Ups=Ups) 

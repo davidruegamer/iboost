@@ -1,4 +1,4 @@
-infsamp <- function(refitFun, y, vT, confun, B, var, ...)
+infsamp <- function(refitFun, y, vt, confun, B, var, ...)
 {
   
   if(!is.list(vt) && nrow(vt)==1){

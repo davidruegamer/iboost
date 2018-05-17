@@ -44,8 +44,15 @@ getDesignmat <- function(mod, split = FALSE, full = FALSE)
   
 }
 
+#' Create test vector
+#' 
+#' @param obj mboost object
+#' @param eps numeric; value to stabilize inversion
+#' @return list of test vectors or matrices for each effect
+#' @export 
+#' 
 # returns v^T for linear effects and \tilde{P}_g for group effects
-getTestvector <- function(obj, eps, makeGroup = FALSE)
+getTestvector <- function(obj, eps = 1e-12)
 {
   
   # get design matrix
@@ -54,84 +61,29 @@ getTestvector <- function(obj, eps, makeGroup = FALSE)
   n <- nrow(X[[1]])
   inds <- c(1, cumsum(nrcol)[-length(nrcol)]+1)
   inde <- cumsum(nrcol)
-  
-  # check for linear effects
-  if(any(nrcol==1) & !makeGroup){
-   
-    Xf <- do.call("cbind", X) 
-    
-    if(n < sum(nrcol)){ # p > n
-      
-      stop("p > n.")
-      # ups <- getUpsilons(obj)
-      # Ztilde <- getZtilde(Ups = ups, mod = obj)
-      # selmod <- selected(obj)
-      # Ztilde_sel <- lapply(1:length(Ztilde), function(i) 10*Ztilde[[i]][[selmod[i]]])
-      # Zdebiased <- lapply(Ztilde_sel, function(z) 2*z-z%*%z)
-      # r <- sapply(Zdebiased, function(x) sum(diag(x)))
-      # ri <- sapply(sort(unique(selected(obj))), function(i) r[max(which(selmod==i))])
-      # XtX <- crossprod(Xf)
-      # lambdas <- c(t(Xf)%*%resid(mod1) / unlist(coef(mod1)))
-      # Xplus <- solve(crossprod(Xf) + diag(lambdas)) %*% t(Xf)
-      
-    }else{
-    
-      Xplus <- solve(crossprod(Xf) + diag(ncol(Xf))*eps) %*% t(Xf)
-      
-    }
-  
-  }
-    
+
+  # create list for result
   vT <- vector("list", length(nrcol))
   
-  # if(any(nrcol>1) & any(sapply(names(obj$baselearner), function(x) grepl("bbs", x)))){
-  # 
-  #   P <- extract(obj, "penalty")
-  #   ups <- getUpsilons(obj)
-  #   Ztilde <- getZtilde(Ups = ups, mod = obj)
-  #   selmod <- selected(obj)
-  #   Ztilde_sel <- lapply(1:length(Ztilde), function(i) 10*Ztilde[[i]][[selmod[i]]])
-  #   Zdebiased <- lapply(Ztilde_sel, function(z) 2*z-z%*%z)
-  #   r <- sapply(Zdebiased, function(x) sum(diag(x)))
-  #   ri <- sapply(sort(unique(selected(obj))), function(i) r[max(which(selmod==i))])
-  #   # options(mboost_lambdaMax = 1e30)
-  #   # lambdas <- sapply(1:length(X), function(j) mboost:::df2lambda(X = X[[j]], df = ri[j], 
-  #   #                              dmat = P[[j]], weights = rep(1, nrow(X[[j]])))[2])
-  #   Xf <- do.call("cbind", X)
-  #   # Pf <- bdiag(lapply(1:length(X), function(j) lambdas[j]*P[[j]]))
-  #   # lambdaA <- mboost:::df2lambda(X = Xf, df = sum(ri), dmat = Pf, weights = rep(1, nrow(Xf)))[2]
-  #   betas <- obj$coef()
-  #   resid <- obj$resid()
-  #   lambdas <- sapply(1:length(X), function(i) solve(t(betas[[i]])%*%crossprod(P[[i]])%*%betas[[i]]) %*% 
-  #                       t(betas[[i]]) %*% t(P[[i]]) %*% t(X[[i]]) %*% resid)
-  #   Pf <- bdiag(lapply(1:length(X), function(j) lambdas[j]*P[[j]]))
-  #   # mboost:::df2lambda(X = Xf, df = NULL, lambda = 1, dmat = Pf, weights = rep(1, nrow(Xf)))[1]
-  #   # lambdaA <- mboost:::df2lambda(X = Xf, df = sum(ri), dmat = Pf, weights = rep(1, nrow(Xf)))[2]
-  #   ed <- eigen(crossprod(Xf) + Pf)
-  #   ind <- ed$values > 1e-9
-  #   vec <- ed$vectors
-  #   vec <- t(t(vec[,ind])/sqrt(ed$val[ind]))
-  #   Vinv <- tcrossprod(vec)
-  #   # H <- Xf%*%Vinv%*%t(Xf)
-  #   # sum(ri)
-  #   # sum(diag(2*H-H%*%H))
-  #   # Fi <- Vinv%*%crossprod(Xf)
-  #   # sum(diag(2*Fi-Fi%*%Fi))
-  #   # (ratio <- ri / c(sum(diag(2*Fi-Fi%*%Fi)[1:24]), sum(sum(diag(2*Fi-Fi%*%Fi)[25:31]))) )
-  #   # lambdas[1] <- lambdas[1]*ratio[2]/ratio[1]
-  #   # Pf <- bdiag(lapply(1:length(X), function(j) lambdas[j]*P[[j]]))
-  #   # lambdaA <- mboost:::df2lambda(X = Xf, df = sum(ri), dmat = Pf, weights = rep(1, nrow(Xf)))[2]
-  #   # Vinv <- solve(crossprod(Xf) + lambdaA*Pf + diag(ncol(Xf))*1e-10)
-  #   
-  # }
-      
   for(j in 1:length(X)){
     
     s <- inds[j]
     e <- inde[j]
     
-    if(ncol(X[[j]])==1 & !makeGroup) # linear effect
+    if(ncol(X[[j]])==1) # linear effect
     {  
+      
+      Xf <- do.call("cbind", X) 
+      
+      if(n < sum(nrcol)){ # p > n
+        
+        stop("p > n.")
+        
+      }else{
+        
+        Xplus <- solve(crossprod(Xf) + diag(ncol(Xf))*eps) %*% t(Xf)
+        
+      }
       
       vT[[j]] <- t(Xplus[s, ]) 
     
@@ -182,7 +134,47 @@ getTestvector <- function(obj, eps, makeGroup = FALSE)
   
 }
 
-# make Baselearners using character names
+getCoefPath <- function(obj, what = c("path", "incr", "sign"))
+{
+  
+  what <- match.arg(what)
+  
+  signCourse <- if(inherits(obj, "glmboost"))
+    sapply(1:mstop(obj), function(m) as.data.frame(obj[m]$coef())) else 
+      sapply(1:mstop(obj),function(m) sapply(obj[m]$coef(),"[[",1))
+  
+  nams <- attr(signCourse[[length(signCourse)]], "names")
+  signCourseS <- do.call("rbind",lapply(signCourse, function(sc){
+    
+    lenSc <- length(sc)
+    
+    if(lenSc<length(nams)){
+      
+      namSc <- names(sc)
+      namsN <- nams[!nams%in%namSc]
+      sc <- c(rep(0,length(namsN)),sc)
+      names(sc) <- c(namsN, namSc)
+      sc <- sc[nams]
+      
+    }
+    
+    unlist(sc)
+    
+  }))
+  
+  if(what == "path") return(signCourseS)
+  
+  signCoursePM <- apply(rbind(rep(0, ncol(signCourseS)), signCourseS), 2, diff)
+  
+  if(what == "incr") return(signCoursePM)
+  
+  # what == "sign"
+  sig <- if(length(signCoursePM)==1) sign(signCoursePM) else rowSums(sign(signCoursePM))
+  return(sig)
+  
+}
+
+# make base-learners using character names
 # blFun specifies the type of BL
 makeBL <- function(charName, blFun, data, ...) {
   
