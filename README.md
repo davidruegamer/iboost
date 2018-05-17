@@ -1,4 +1,8 @@
-# iboost
+# iboost - Inference for Model-based Boosting
+
+Add-on package for the R package `mboost` to calculate p-values and confidence intevals for model parameters. Package currently supports models fitted with Gaussian family including linear, group and spline base-learners.
+
+## Example
 
 ```R
 # library("devtools")
