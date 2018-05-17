@@ -26,8 +26,8 @@ spline3 <- bbs(x3, knots = 20, df = 4)
 data <- data.frame(y=y, x1=x1, x2=x2, x3=x3)
 
 mod1 <- mboost(y ~ spline1 + spline2 + spline3,
-control=boost_control(mstop = 73), offset = 0, 
-data = data)
+               control=boost_control(mstop = 73), offset = 0, 
+               data = data)
 
 # calculate p-values and intervals for model with 
 # fixed stopping iteration:
@@ -39,8 +39,8 @@ res <- iboost(mod1, method = "impsamp", B = 100)
 # do the same with crossvalidation
 
 fixFolds <- cv(weights = model.weights(mod1),
-type = "kfold", B = 10)
-cvr <- cvrisk(mod1, folds = fixFolds, papply = lapply)
+               type = "kfold", B = 10)
+               cvr <- cvrisk(mod1, folds = fixFolds, papply = lapply)
 modf <- mod1[mstop(cvr)]
 
 # define corresponding refit function
