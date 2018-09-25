@@ -272,7 +272,7 @@ iboost <- function(obj,
       unifsamp(refit.mboost, y, vT = vt, is_congruent, B, var, ...),
                         mc.cores = ncore)
   )
-  dur <- as.numeric(difftime(Sys.time(), tstart))
+  dur <- as.numeric(difftime(Sys.time(), tstart, units = "secs"))
   ####### format results #######
   
   if(returnSamples) return(list(res = res, 
