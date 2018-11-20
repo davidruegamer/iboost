@@ -81,6 +81,8 @@ getTestvector <- function(obj, eps = 1e-12)
       Xplus <- backsolve(Rchol, L1)
       
     }
+    
+  }
   
   for(j in 1:length(X)){
     
