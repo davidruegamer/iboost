@@ -64,26 +64,31 @@ getTestvector <- function(obj, eps = 1e-12)
 
   # create list for result
   vT <- vector("list", length(nrcol))
+  # get LS hat
+  if(any(sapply(X, ncol)==1))
+  {
+    
+    if(n < sum(nrcol)) stop("p > n.")
+    
+    Xf <- do.call("cbind", X) 
+    B <- crossprod(Xf) + diag(ncol(Xf))*eps
+    Xplus <- try(solve(B) %*% t(Xf))
+    
+    if(class(Xplus)=="try-error"){  
+      
+      Rchol   <- try(chol(B))
+      L1      <- backsolve(Rchol, t(Xf), transpose = TRUE)
+      Xplus <- backsolve(Rchol, L1)
+      
+    }
   
   for(j in 1:length(X)){
     
     s <- inds[j]
-    e <- inde[j]
+    # e <- inde[j]
     
     if(ncol(X[[j]])==1) # linear effect
     {  
-      
-      Xf <- do.call("cbind", X) 
-      
-      if(n < sum(nrcol)){ # p > n
-        
-        stop("p > n.")
-        
-      }else{
-        
-        Xplus <- solve(crossprod(Xf) + diag(ncol(Xf))*eps) %*% t(Xf)
-        
-      }
       
       vT[[j]] <- t(Xplus[s, ]) 
     
