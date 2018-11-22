@@ -145,7 +145,7 @@ normaladjsamp <- function(refitFun, y, vT, is_congruent, B, var)
 
 unifsamp <- function(refitFun, y, vT, is_congruent, B, var, 
                      min_nr_res = 50,  
-                     maxIter = 100, nInit = 50, ...)
+                     maxIter = 10, nInit = 50, ...)
 {
   
   vTv = as.numeric(tcrossprod(vT))
