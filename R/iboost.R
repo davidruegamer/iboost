@@ -1,20 +1,24 @@
 #' @title Valid Inference for Model-based Gradient Boosting Models
 #' @param obj mboost object
 #' @param method character; if possible, choose custom method. See details.
-#' @param vars numeric vector; a single numeric value or vector of numeric values for the variance 
-#' used in the linear model (preferably the true variance or an estimation from a consistent estimator). 
-#' If NULL, the empirical response variance is used, which will result in rather conservative inference.
-#' @param varForSampling variance used for generate new samples. Defaults to the first entry of \code{vars} 
-#' if not given.
+#' @param vars numeric vector; a single numeric value or vector of numeric values for the 
+#' variance used in the linear model (preferably the true variance or an estimation from a 
+#' consistent estimator). If NULL, the empirical response variance is used, which will result 
+#' in rather conservative inference.
+#' @param varForSampling variance used for generate new samples. 
+#' Defaults to the first entry of \code{vars} if not given.
 #' @param B numeric; number of samples drawn for inference.
-#' @param alpha numeric; significance level for p-value / size of selective interval (\code{1 - alpha}).
+#' @param alpha numeric; significance level for p-value / size of selective interval 
+#' (\code{1 - alpha}).
 #' @param ncore numeric; number of cores to use (via \code{mclapply})
-#' @param refit.mboost function; this is needed if \code{obj} was created by a direct call to \code{mboost_fit}. 
-#' In this case, \code{refit.mboost} should be a function of the response, refitting the exact model 
+#' @param refit.mboost function; this is needed if \code{obj} was created by a direct call 
+#' to \code{mboost_fit}. 
+#' In this case, \code{refit.mboost} should be a function of the response, 
+#' refitting the exact model 
 #' as given by \code{obj} with the response vector.
 #' @param Ups list of residual matrix produces by \code{\link{getUpsilons}}.
-#' @param checkBL logical; if \code{TRUE} checks whether base-learner only include linear, group and 
-#' spline base-learner (which are currently supported)
+#' @param checkBL logical; if \code{TRUE} checks whether base-learner only include linear, 
+#' group and spline base-learner (which are currently supported)
 #' @param vT list of test vectors as produced by \code{\link{getTestvector}}.
 #' @param computeCI logical; whether or not to compute selective confidence intervals
 #' @param returnSamples logical; whether or not (default = FALSE) to only return 
@@ -63,9 +67,10 @@
 #' list of \code{iboost} objects for each variance.
 #' An \code{iboost} object is a list containing the following items
 #' \itemize{
-#'   \item \code{dist}: a list obtained by the sampling procedure including \code{rB}, the 
-#'   sampled values, \code{logvals}, logical values whether the corresponding \code{rB} yields 
-#'   to a congruent model with the initial model fit, \code{obsval}, the actual observed value 
+#'   \item \code{dist}: a list obtained by the sampling procedure 
+#'   including \code{rB}, the sampled values, \code{logvals}, logical values whether 
+#'   the corresponding \code{rB} yields to a congruent model with the initial model fit, 
+#'   \code{obsval}, the actual observed value 
 #'   in the initial model fit and corresponding \code{weights} of the importance sampling 
 #'   procedure.
 #'   \item \code{method}: name of the method used
@@ -81,8 +86,8 @@
 #'      
 #' }
 #' @description Function computes selective p-values (and confidence intervals) 
-#' for \code{\link[mboost]{mboost}} objects. Currently \code{iboost} supports Gaussian family models 
-#' (L2-Boosting) with linear, group and spline base-learners.
+#' for \code{\link[mboost]{mboost}} objects. Currently \code{iboost} supports Gaussian 
+#' family models (L2-Boosting) with linear, group and spline base-learners.
 #' @examples 
 #' 
 #' if(require("mboost")){
@@ -169,14 +174,17 @@ iboost <- function(obj,
   ####### checks #######
 
   # check model class
-  if(all(class(obj) != "mboost")) stop("obj must be of class mboost.")
+  if(all(class(obj) != "mboost")) 
+    stop("obj must be of class mboost.")
   
   # check that offset is (almost) zero
-  if(abs(obj$offset) > 0.000001) stop(paste0("Please refit the model by substracting", 
-                                  " the offset from the response before calling mboost / glmboost."))
+  if(abs(obj$offset) > 0.000001) 
+    stop(paste0("Please refit the model by substracting", 
+                " the offset from the response before calling mboost / glmboost."))
     
   # check alpha level
-  if(alpha >= 1 | alpha <= 0.001) stop("Please provide an alpha value in between 0.001 and 1.")
+  if(alpha >= 1 | alpha <= 0.001) 
+    stop("Please provide an alpha value in between 0.001 and 1.")
 
   # check that family == Gaussian
   if(obj$family@name != "Squared Error (Regression)")
@@ -192,10 +200,12 @@ iboost <- function(obj,
   # check for not supported base-learners  
   learners <- gsub("(.*)\\(.*\\)","\\1",names(obj$baselearner))
   if(checkBL && any(sapply(learners, function(x) !x %in% c("bbs","bols"))))
-    stop("Inference is currently restricted to model with linear and b-spline base-learner only.")
+    stop(paste0("Inference is currently restricted to model with", 
+                " linear and b-spline base-learner only."))
   
   # check model call and data argument
-  if(is.null(refit.mboost) && (is.null(obj$call) || class(obj$call$data)!="name") && method!="analytic")
+  if(is.null(refit.mboost) && (is.null(obj$call) || class(obj$call$data)!="name") && 
+     method!="analytic")
     stop("Need data object as parameter in initial model call.")
   
   # check variances
@@ -222,11 +232,12 @@ iboost <- function(obj,
   {
     
     method <- "impsamp"
-    warning(paste0("The supplied method does not allow for inference of grouped variable parameters.\n", 
-                "method has changed to impsamp.\n", 
-                "If linear effects are given and you wish",
-                "to use a different method, please use the which argument to only select", 
-                "effects of linear base-learners.")
+    warning(paste0("The supplied method does not allow for inference ",
+                   "of grouped variable parameters.\n", 
+                   "method has changed to impsamp.\n", 
+                   "If linear effects are given and you wish",
+                   "to use a different method, please use the which argument to only select", 
+                   "effects of linear base-learners.")
     )
     
   }
@@ -314,7 +325,8 @@ iboost <- function(obj,
 #' @details The specific use of this function is to (internally) compute inference based 
 #' on samples in the \code{\link{iboost}} function, to recalculate inference for 
 #' given samples \code{dist} from an \code{iboost} object or to calculate inference in 
-#' the first place when \code{\link{iboost}} has been ran with argument \code{returnSamples = TRUE}. 
+#' the first place when \code{\link{iboost}} has been ran with 
+#' argument \code{returnSamples = TRUE}. 
 #' In the first and third case, use \code{format_iboost_res}, otherwise \code{format_iboost}.
 #' 
 #' @examples 
@@ -424,7 +436,8 @@ format_iboost_res <- function(
       survr_gr <- survr[l2]
       survr_le <- survr[!l2]
       
-      pval <- sum(res[[j]]$weights(var = this_var)[l2]) / sum(res[[j]]$weights(var = this_var))
+      pval <- sum(res[[j]]$weights(var = this_var)[l2]) / 
+        sum(res[[j]]$weights(var = this_var))
       
       vt <- vT[[j]]
       vTv <- as.numeric(tcrossprod(vT[[j]]))
@@ -544,7 +557,8 @@ format_iboost_res <- function(
         
       }
       
-      resDF[[j]] <- data.frame(lower = ci[1], mean = mu, upper = ci[2], pval = 2*min(pv, 1-pv),
+      resDF[[j]] <- data.frame(lower = ci[1], mean = mu, upper = ci[2], 
+                               pval = 2*min(pv, 1-pv),
                                lowtrunc = vlo, uptrunc = vup)   
       
     }
