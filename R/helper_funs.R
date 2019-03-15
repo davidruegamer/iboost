@@ -58,7 +58,7 @@ getTestvector <- function(obj, eps = 1e-12)
   # get design matrix
   X <- getDesignmat(obj, split = T)
   nrcol <- sapply(X, "NCOL")
-  n <- nrow(X[[1]])
+  n <- NROW(X[[1]])
   inds <- c(1, cumsum(nrcol)[-length(nrcol)]+1)
   inde <- cumsum(nrcol)
 
@@ -89,7 +89,7 @@ getTestvector <- function(obj, eps = 1e-12)
     s <- inds[j]
     # e <- inde[j]
     
-    if(ncol(X[[j]])==1) # linear effect
+    if(NCOL(X[[j]])==1) # linear effect
     {  
       
       vT[[j]] <- t(Xplus[s, ]) 
