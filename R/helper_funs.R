@@ -57,7 +57,7 @@ getTestvector <- function(obj, eps = 1e-12)
   
   # get design matrix
   X <- getDesignmat(obj, split = T)
-  nrcol <- sapply(X, "ncol")
+  nrcol <- sapply(X, "NCOL")
   n <- nrow(X[[1]])
   inds <- c(1, cumsum(nrcol)[-length(nrcol)]+1)
   inde <- cumsum(nrcol)
