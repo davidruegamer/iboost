@@ -65,7 +65,7 @@ getTestvector <- function(obj, eps = 1e-12)
   # create list for result
   vT <- vector("list", length(nrcol))
   # get LS hat
-  if(any(sapply(X, ncol)==1))
+  if(any(sapply(X, NCOL)==1))
   {
     
     if(n < sum(nrcol)) stop("p > n.")
